@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 from sys import argv
 import json
 import string
+import os
 
 # base USER address of Wikiloc
 wikilocUserUrl="http://www.wikiloc.com/wikiloc/user.do?id="
@@ -31,6 +32,13 @@ def scrapTrailList(userUrl):
     else:
         print("Scrapping done")
         return trailUrls, None
+def scrapUsername(userUrl):
+    """Scrap username""" 
+    response=requests.get(userUrl, headers=headers)
+    soup=BeautifulSoup(response.text, "lxml")
+    username=soup.find("h1", class_="profile").text
+    print("Scrapping %s for username=%s" % (userUrl, username))
+    return username
 
 def scrapTrailInfo(trailUrl):
     """Scrap all information of a single trail, like
@@ -45,6 +53,8 @@ def scrapTrailInfo(trailUrl):
     #     soup=BeautifulSoup(response, "lxml")
     trailInfo={}
     # Trail activity, title, date and description
+    trailInfo["user"]= soup.find("div", class_="user-info").find("a").text
+    
     trailInfo["activity"]= soup.find("div", class_="trail-title clearfix").find("a").get("title")
     trailInfo["title"] = soup.find("h1").text.strip()
     for i in soup.find_all("h4"):
@@ -72,7 +82,7 @@ def scrapTrailInfo(trailUrl):
         trailInfo["photos"].append(scrapPhoto(photoUrl))
     # GPX track
     trailInfo["gpxDownloadUrl"]=soup.find("a", class_="btn btn-lg btn-success btn-download").get("href")
-    print( json.dumps(trailInfo,indent=4))
+    #print(trailInfo)
     return trailInfo
 
 def scrapPhoto(photoUrl):
@@ -84,16 +94,29 @@ def scrapPhoto(photoUrl):
     return soup.find("img", class_="photo").get("src")
 
 def downloadPhoto(photoUrl, filename):
-    print("Downloading photo: %s" % photoUrl)
-    response = requests.get(photoUrl)
+    print("Downloading photo: %s" % photoUrl, end="")
+    response = requests.get(photoUrl, headers=headers)
     content_type = response.headers['content-type']
     extension = mimetypes.guess_extension(content_type)
     with open(filename+extension, 'wb') as handler:
         handler.write(response.content)
+    print(", saved in %s"%filename+extension)
 
-def saveTrail(trailDict, filename):
-    #TODO: download and save the photos and GPX. And save the trailDict as json
-    pass
+def saveTrail(trailDict, username, filename):
+    """ download and save the photos and GPX. And save the trail info as json"""
+    backup_dir="wikiloc_backup_"+username
+    if not os.path.exists(backup_dir):
+        os.makedirs(backup_dir)
+    trail_dir=backup_dir+"/"+filename+"/"
+    if not os.path.exists(trail_dir):
+        os.makedirs(trail_dir)
+    print("Saving %s in folder %s" % (trailDict["title"], trail_dir))
+
+    with open(trail_dir+"trailInfo.json", "w+") as file:
+        file.write(json.dumps(trailDict,indent=4))
+    for i,photo in enumerate(trailDict["photos"],start=1):
+        downloadPhoto(photo, trail_dir+"photo"+str(i))
+
 
 def decideTrailFilename(trailInfo):
     trail_filename=""
@@ -104,9 +127,7 @@ def decideTrailFilename(trailInfo):
     trail_filename+=trailInfo["activity"]
     trail_filename+="_"
     trail_filename+=trailInfo["title"]
-    #print(trail_filename)
     trail_filename=trail_filename.replace(" ", "-")
-    #print(trail_filename)
     valid_chars = "-_%s%s" % (string.ascii_letters, string.digits)
     trail_filename=''.join(c for c in trail_filename if c in valid_chars)
     return trail_filename[0:100] #up to 100 chars, just in case
@@ -127,18 +148,21 @@ def convertMonthNameToNumber(MonthName):
     return MonthNameToNumberDict[MonthName.lower()]
 
 def main():
-    # if len(argv)>1:
-    #     if argv[1].isdigit(): 
-    #         url=wikilocUserUrl+argv[1]
-    #     else:
-    #         print("Wrong user-id")
-    #         exit()
-    # else:
-    #     print("Wrong user-id")
-    #     exit()
+    if len(argv)>1:
+        if argv[1].isdigit(): 
+            url=wikilocUserUrl+argv[1]
+        else:
+            print("Wrong user-id")
+            exit()
+    else:
+        print("Wrong user-id")
+        exit()
+
+    username=scrapUsername(url)
     # trailUrls=[]
-    # while (url):
-    #     trailUrlsPerPage,url=scrapTrailList(url)
+    # nextPage=url
+    # while (nextPage):
+    #     trailUrlsPerPage,nextPage=scrapTrailList(nextPage)
     #     trailUrls=trailUrls+trailUrlsPerPage
     # print(trailUrls)
 
@@ -150,7 +174,8 @@ def main():
     for url in trailUrls:
         trailInfo=scrapTrailInfo(url)
         trail_filename=decideTrailFilename(trailInfo)
-        print(trail_filename)
+        saveTrail(trailInfo, username, trail_filename)
+        
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ cd C:\Users\%USERNAME%\AppData\Local\Programs\Python\Python38\Scripts
 .\pip.exe install selenium
 ```
 Descargar un plugin de navegador para Selenium. Por ejemplo, en el caso de Firefox: https://github.com/mozilla/geckodriver/releases/tag/v0.24.0
+Descomprimir y copiarlo en un lugar del PATH de Windows, por ejemplo en mi caso C:\Users\%USERNAME%\AppData\Local\Microsoft\WindowsApps\geckodriver.exe
 Si no usas Firefox, visita: https://selenium-python.readthedocs.io/installation.html#drivers
 
 

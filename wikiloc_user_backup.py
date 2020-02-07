@@ -161,6 +161,8 @@ def decideTrailFilename(trailInfo):
     trail_filename+="_"
     trail_filename+=trailInfo["activity"]
     trail_filename+="_"
+    trail_filename+=trailInfo["author"]
+    trail_filename+="_"
     trail_filename+=trailInfo["title"]
     trail_filename=trail_filename.replace(" ", "-")
     valid_chars = "-_%s%s" % (string.ascii_letters, string.digits)
